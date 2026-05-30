@@ -11,11 +11,8 @@ from mediapipe.tasks.python.vision import drawing_styles
 
 
 def calculate_angle(a, b, c):
-    a, b, c = np.array(a), np.array(b), np.array(c)
-    radians = np.arctan2(c[1]-b[1], c[0]-b[0]) - np.arctan2(a[1]-b[1], a[0]-b[0])
-    angle = np.abs(radians*180.0/np.pi)
-    if angle > 180.0: angle = 360 - angle
-    return angle
+    # Function removed as per request to avoid angle checks
+    pass
 
 class PushupCounter:
     def __init__(self, model_path='pose_landmarker_heavy.task'):
@@ -100,7 +97,7 @@ class PushupCounter:
                     ankle_r.visibility, ankle_l.visibility
                 ])
                 
-                if min_vis < 0.1:
+                if min_vis == 0:
                     feedback_msg = "Ensure your full body is visible."
                 else:
                     # Convert coordinates to NumPy arrays for geometric math (X, Y) in pixel coordinates
@@ -119,9 +116,6 @@ class PushupCounter:
                     knee_mid = (lk + rk) / 2
                     ankle_mid = (la + ra) / 2
                     
-                    hip_angle = calculate_angle(shoulder_mid, hip_mid, knee_mid)
-                    knee_angle = calculate_angle(hip_mid, knee_mid, ankle_mid)
-                    
                     body_length = np.linalg.norm(shoulder_mid - ankle_mid)
                     
                     if body_length == 0:
@@ -130,18 +124,12 @@ class PushupCounter:
                         body_incline_ratio = abs(shoulder_mid[1] - ankle_mid[1]) / body_length
                         
                         is_not_standing = body_incline_ratio < 0.65 
-                        is_torso_straight = hip_angle > 130.0 
-                        is_leg_straight = knee_angle > 130.0
                         is_feet_on_floor = ankle_mid[1] > (knee_mid[1] - 0.05 * body_length)
                         
                         if not is_not_standing:
                             feedback_msg = "Invalid: Standing/Steep Incline"
                         elif not is_feet_on_floor:
                             feedback_msg = "Invalid: Knee Push-up / Feet Lifted"
-                        elif not is_torso_straight:
-                            feedback_msg = "Invalid: Crouching / Hips Bent"
-                        elif not is_leg_straight:
-                            feedback_msg = "Invalid: Legs Bent"
                         else:
                             feedback_msg = "Good position!"
                             
@@ -152,18 +140,7 @@ class PushupCounter:
                             # Proceed with analyzing points
                             shoulder_height_px = max(0, ground_y_px - shoulder_y_px)
                             
-                            right_angle = calculate_angle(
-                                [shoulder_r.x * w, shoulder_r.y * h],
-                                [elbow_r.x * w, elbow_r.y * h],
-                                [wrist_r.x * w, wrist_r.y * h]
-                            )
-                            left_angle = calculate_angle(
-                                [shoulder_l.x * w, shoulder_l.y * h],
-                                [elbow_l.x * w, elbow_l.y * h],
-                                [wrist_l.x * w, wrist_l.y * h]
-                            )
-                            
-                            self.analyzer.process_point(current_time, right_angle, left_angle, shoulder_height_px)
+                            self.analyzer.process_point(current_time, shoulder_height_px)
             except IndexError:
                 pass
         else:
