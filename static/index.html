@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Live Push-Up Counter powered by MediaPipe and FastAPI">
+    <title>Live Push-Up Counter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="glass-header">
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L2 22H22L12 2Z" fill="url(#gradient)"/>
+                    <defs>
+                        <linearGradient id="gradient" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#4F46E5"/>
+                            <stop offset="1" stop-color="#06B6D4"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1>FitTrack Pro</h1>
+            </div>
+            <div class="status-indicator">
+                <div class="dot disconnected" id="connection-status"></div>
+                <span id="connection-text">Disconnected</span>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <section class="video-section">
+                <div class="video-wrapper glass-panel">
+                    <!-- Hidden video element for capturing camera feed -->
+                    <video id="webcam-video" autoplay playsinline muted></video>
+                    
+                    <!-- Canvas for drawing frames to send to server -->
+                    <canvas id="capture-canvas"></canvas>
+                    
+                    <!-- Image tag to display the processed feed from the server -->
+                    <img id="processed-feed" src="" alt="Live Workout Feed" />
+                    
+                    <!-- Overlay UI when camera is off -->
+                    <div class="camera-overlay" id="camera-overlay">
+                        <button id="start-btn" class="primary-btn">Start Workout</button>
+                    </div>
+                </div>
+            </section>
+            
+            <aside class="stats-sidebar glass-panel">
+                <div class="stat-card">
+                    <h2>Live Count</h2>
+                    <div class="counter-display" id="rep-count">0</div>
+                    <p class="stat-label">Push-Ups</p>
+                </div>
+                
+                <div class="info-card">
+                    <h3>How it works</h3>
+                    <p>Ensure your full body is visible in the camera frame. The AI will automatically track your reps based on shoulder and waist alignment.</p>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <script src="/static/main.js"></script>
+</body>
+</html>

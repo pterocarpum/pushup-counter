@@ -1,3 +1,4 @@
 venv
 videos
 *.task
+__pycache__
