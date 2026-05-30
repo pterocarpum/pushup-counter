@@ -30,10 +30,11 @@ def calculate_angle(a, b, c):
 # --- 2. Core Processing Function ---
 def process_pushup_video(video_name, video_dir='videos', show_video=False):
     """
-    Processes a single push-up video, counts reps, normalizes height data,
+    Processes a single push-up video, counts reps, records arm angles,
     saves stats to a CSV, and exports a trend plot.
     """
     video_source = f'{video_dir}/{video_name}'
+    video_name = 'angles_'+video_name
     
     # Ensure output directories exist
     os.makedirs('data', exist_ok=True)
@@ -52,7 +53,7 @@ def process_pushup_video(video_name, video_dir='videos', show_video=False):
     counter = 0 
     stage = "UNKNOWN"
 
-    time_steps, shoulder_heights, waist_heights = [], [], []
+    time_steps, left_arm_angles, right_arm_angles = [], [], []
     csv_data = []
 
     # Initialize Tasks API Pose Landmarker
@@ -62,10 +63,10 @@ def process_pushup_video(video_name, video_dir='videos', show_video=False):
         running_mode=vision.RunningMode.VIDEO
     )
 
+    # Relevant landmarks for arm angles
     LEFT_SHOULDER, RIGHT_SHOULDER = 11, 12
-    LEFT_ELBOW = 13
+    LEFT_ELBOW, RIGHT_ELBOW = 13, 14
     LEFT_WRIST, RIGHT_WRIST = 15, 16
-    LEFT_HIP, RIGHT_HIP = 23, 24
 
     print(f"\n--- Starting processing for: {video_name} ---")
     print(f"Video View is {'ON' if show_video else 'OFF'}")
@@ -80,8 +81,6 @@ def process_pushup_video(video_name, video_dir='videos', show_video=False):
             frame_count += 1
             current_time = frame_count / fps
             timestamp_ms = int((frame_count * 1000) / fps)
-            
-            h, w, c = frame.shape
 
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
@@ -102,32 +101,32 @@ def process_pushup_video(video_name, video_dir='videos', show_video=False):
                     )
                 
                 try:
+                    # Extract left arm coordinates
                     shoulder_l = [pose_landmarks[LEFT_SHOULDER].x, pose_landmarks[LEFT_SHOULDER].y]
                     elbow_l    = [pose_landmarks[LEFT_ELBOW].x, pose_landmarks[LEFT_ELBOW].y]
                     wrist_l    = [pose_landmarks[LEFT_WRIST].x, pose_landmarks[LEFT_WRIST].y]
                     
-                    angle = calculate_angle(shoulder_l, elbow_l, wrist_l)
+                    # Extract right arm coordinates
+                    shoulder_r = [pose_landmarks[RIGHT_SHOULDER].x, pose_landmarks[RIGHT_SHOULDER].y]
+                    elbow_r    = [pose_landmarks[RIGHT_ELBOW].x, pose_landmarks[RIGHT_ELBOW].y]
+                    wrist_r    = [pose_landmarks[RIGHT_WRIST].x, pose_landmarks[RIGHT_WRIST].y]
                     
-                    if angle > 160:
+                    # Calculate both angles
+                    left_angle = calculate_angle(shoulder_l, elbow_l, wrist_l)
+                    right_angle = calculate_angle(shoulder_r, elbow_r, wrist_r)
+                    
+                    # Use left angle for standard rep counting
+                    if left_angle > 160:
                         stage = "UP"
-                    if angle < 90 and stage == 'UP':
+                    if left_angle < 90 and stage == 'UP':
                         stage = "DOWN"
                         counter += 1
                         
-                    wrist_r_y = pose_landmarks[RIGHT_WRIST].y
-                    wrist_l_y = pose_landmarks[LEFT_WRIST].y
-                    ground_y = (wrist_l_y + wrist_r_y) / 2
-                    
-                    shoulder_y = (pose_landmarks[LEFT_SHOULDER].y + pose_landmarks[RIGHT_SHOULDER].y) / 2
-                    waist_y = (pose_landmarks[LEFT_HIP].y + pose_landmarks[RIGHT_HIP].y) / 2
-                    
-                    shoulder_height_px = max(0, (ground_y - shoulder_y) * h)
-                    waist_height_px = max(0, (ground_y - waist_y) * h)
-                    
+                    # Save the angle data for CSV and plotting
                     time_steps.append(current_time)
-                    shoulder_heights.append(shoulder_height_px)
-                    waist_heights.append(waist_height_px)
-                    csv_data.append([round(current_time, 2), round(shoulder_height_px, 2), round(waist_height_px, 2)])
+                    left_arm_angles.append(left_angle)
+                    right_arm_angles.append(right_angle)
+                    csv_data.append([round(current_time, 2), round(left_angle, 2), round(right_angle, 2)])
 
                     if show_video:
                         cv2.rectangle(annotated_image, (0,0), (225,73), (245,117,16), -1)
@@ -140,7 +139,7 @@ def process_pushup_video(video_name, video_dir='videos', show_video=False):
                     pass
             
             if show_video:
-                cv2.imshow('Push-up Counter & Tracker (Tasks API)', annotated_image)
+                cv2.imshow('Push-up Counter & Tracker', annotated_image)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
             else:
@@ -151,23 +150,6 @@ def process_pushup_video(video_name, video_dir='videos', show_video=False):
     cap.release()
     cv2.destroyAllWindows()
 
-    # Normalise data
-    if len(shoulder_heights) > 0 and len(waist_heights) > 0:
-        sh_arr = np.array(shoulder_heights)
-        wh_arr = np.array(waist_heights)
-        
-        sh_min, sh_max = sh_arr.min(), sh_arr.max()
-        wh_min, wh_max = wh_arr.min(), wh_arr.max()
-        
-        if sh_max > sh_min: 
-            shoulder_heights = ((sh_arr - sh_min) / (sh_max - sh_min)).tolist()
-        if wh_max > wh_min: 
-            waist_heights = ((wh_arr - wh_min) / (wh_max - wh_min)).tolist()
-            
-        for i in range(len(csv_data)):
-            csv_data[i][1] = round(shoulder_heights[i], 4)
-            csv_data[i][2] = round(waist_heights[i], 4)
-
     end_time = time.time()
     print(f"Processing finished in {round(end_time - start_time, 2)} seconds!")
     print(f"Total Reps Counted: {counter}")
@@ -177,19 +159,19 @@ def process_pushup_video(video_name, video_dir='videos', show_video=False):
         csv_filename = f"data/{video_name[:-4]}.csv"
         with open(csv_filename, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["Time(s)", "Shoulder", "Waist"])
+            writer.writerow(["Time(s)", "Left(deg)", "Right(deg)"])
             writer.writerows(csv_data)
         print(f"Data successfully saved to '{csv_filename}'.")
 
     # Plotting the Data
     if len(time_steps) > 0:
         plt.figure(figsize=(10, 5))
-        plt.plot(time_steps, shoulder_heights, label='Shoulder Height', color='blue', linewidth=2)
-        plt.plot(time_steps, waist_heights, label='Waist Height', color='green', linewidth=2)
+        plt.plot(time_steps, left_arm_angles, label='Left Arm', color='blue', linewidth=2)
+        plt.plot(time_steps, right_arm_angles, label='Right Arm', color='red', linewidth=2, alpha=0.7)
         
-        plt.title(f'Normalized Height of Shoulders and Waist from Ground - {video_name[:-4]}')
+        plt.title(f'Arm Angles Over Time - {video_name[:-4]}')
         plt.xlabel('Time (Seconds)')
-        plt.ylabel('Normalized Height (0-1 Scale)')
+        plt.ylabel('Angle (Degrees)')
         plt.legend()
         plt.grid(True)
         plt.tight_layout()
@@ -199,9 +181,8 @@ def process_pushup_video(video_name, video_dir='videos', show_video=False):
     else:
         print("No data was collected.")
 
-
 if __name__ == "__main__":
-    video_list = ['pushup6.mp4']
+    video_list =  [f for f in os.listdir('videos') if os.path.isfile(os.path.join('videos', f))]
     
     # Run the loop
     for video in video_list:

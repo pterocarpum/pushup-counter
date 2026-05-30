@@ -10,9 +10,16 @@ from mediapipe.tasks.python.vision import drawing_utils
 from mediapipe.tasks.python.vision import drawing_styles
 
 
+def calculate_angle(a, b, c):
+    a, b, c = np.array(a), np.array(b), np.array(c)
+    radians = np.arctan2(c[1]-b[1], c[0]-b[0]) - np.arctan2(a[1]-b[1], a[0]-b[0])
+    angle = np.abs(radians*180.0/np.pi)
+    if angle > 180.0: angle = 360 - angle
+    return angle
+
 class PushupCounter:
     def __init__(self, model_path='pose_landmarker_heavy.task'):
-        self.analyzer = AdaptivePushupAnalyzer("Shoulder")
+        self.analyzer = AdaptivePushupAnalyzer()
         
         base_options = python.BaseOptions(model_asset_path=model_path)
         options = vision.PoseLandmarkerOptions(
@@ -22,7 +29,7 @@ class PushupCounter:
         self.landmarker = vision.PoseLandmarker.create_from_options(options)
         
         self.LEFT_SHOULDER, self.RIGHT_SHOULDER = 11, 12
-        self.LEFT_ELBOW = 13
+        self.LEFT_ELBOW, self.RIGHT_ELBOW = 13, 14
         self.LEFT_WRIST, self.RIGHT_WRIST = 15, 16
         self.LEFT_HIP, self.RIGHT_HIP = 23, 24
         
@@ -74,14 +81,13 @@ class PushupCounter:
                 shoulder_l = pose_landmarks[self.LEFT_SHOULDER]
                 waist_r = pose_landmarks[self.RIGHT_HIP]
                 waist_l = pose_landmarks[self.LEFT_HIP]
-
-                min_vis = min([
-                    wrist_r.visibility, wrist_l.visibility, 
-                    shoulder_r.visibility, shoulder_l.visibility, 
-                    waist_r.visibility, waist_l.visibility
-                ])
-
-                if min_vis < 0.2:
+                elbow_r = pose_landmarks[self.RIGHT_ELBOW]
+                elbow_l = pose_landmarks[self.LEFT_ELBOW]
+                
+                # Check visibility
+                min_vis = min([wrist_r.visibility, wrist_l.visibility, shoulder_r.visibility, shoulder_l.visibility, waist_r.visibility, waist_l.visibility, elbow_r.visibility, elbow_l.visibility])
+                
+                if min_vis < 0.1:
                     feedback_msg = "Ensure your full body is visible."
                 else:
                     # Convert coordinates to NumPy arrays for geometric math (X, Y)
@@ -106,7 +112,7 @@ class PushupCounter:
                         shoulder_ratio = abs(ls[0] - rs[0]) / torso_length
 
                         # Condition 1: Horizontal Check (e.g., Lying down / Plank)
-                        if vertical_ratio > 0.3:
+                        if vertical_ratio > 0.4:
                             feedback_msg = "Rest horizontally above the ground."
                             
                         # Condition 2: Sideways Check (Profile View)
@@ -121,10 +127,22 @@ class PushupCounter:
                             ground_y = (wrist_l.y + wrist_r.y) / 2
                             shoulder_y = shoulder_mid[1]
                             
-                            # Calculate pixel height for analysis processing
+                            # Proceed with analyzing points
                             shoulder_height_px = max(0, (ground_y - shoulder_y) * h)
-                            self.analyzer.process_point(current_time, shoulder_height_px)
-                        if feedback_msg != "Good position!": print(feedback_msg)
+                            
+                            right_angle = calculate_angle(
+                                [shoulder_r.x, shoulder_r.y],
+                                [elbow_r.x, elbow_r.y],
+                                [wrist_r.x, wrist_r.y]
+                            )
+                            left_angle = calculate_angle(
+                                [shoulder_l.x, shoulder_l.y],
+                                [elbow_l.x, elbow_l.y],
+                                [wrist_l.x, wrist_l.y]
+                            )
+                            
+                            self.analyzer.process_point(current_time, right_angle, left_angle, shoulder_height_px)
+                        #if feedback_msg != "Good position!": print(feedback_msg)
             except IndexError:
                 pass
         else:

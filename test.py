@@ -35,4 +35,4 @@ def main(video_source):
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    main('videos/pushup5.mp4')
+    main('videos/pushup6.mp4')
