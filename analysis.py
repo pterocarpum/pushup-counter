@@ -33,7 +33,7 @@ class AdaptivePushupAnalyzer:
             self.avg_amp = self.global_max - self.global_min
             
         # The absolute minimum threshold to prevent tracking micro-jitters (10% of average rep)
-        noise_floor = 0.10 * self.avg_amp
+        noise_floor = 0.20 * self.avg_amp
 
         # 2. CALIBRATION PHASE
         if self.state == 'CALIBRATING':
@@ -134,4 +134,4 @@ def stream_csv_data(csv_filepath):
         #waist_analyzer.process_point(t, row['Waist'])
 
 if __name__ == "__main__":
-    stream_csv_data('data/pushup2.csv')
+    stream_csv_data('data/pushup6.csv')

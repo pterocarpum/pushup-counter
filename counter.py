@@ -74,31 +74,57 @@ class PushupCounter:
                 shoulder_l = pose_landmarks[self.LEFT_SHOULDER]
                 waist_r = pose_landmarks[self.RIGHT_HIP]
                 waist_l = pose_landmarks[self.LEFT_HIP]
-                
-                # Check visibility
-                min_vis = min([wrist_r.visibility, wrist_l.visibility, shoulder_r.visibility, shoulder_l.visibility, waist_r.visibility, waist_l.visibility])
-                
-                if min_vis < 0.1:
-                    feedback_msg = "Please ensure your full body is visible."
+
+                min_vis = min([
+                    wrist_r.visibility, wrist_l.visibility, 
+                    shoulder_r.visibility, shoulder_l.visibility, 
+                    waist_r.visibility, waist_l.visibility
+                ])
+
+                if min_vis < 0.2:
+                    feedback_msg = "Ensure your full body is visible."
                 else:
-                    ground_y = (wrist_l.y + wrist_r.y) / 2
-                    shoulder_y = (shoulder_l.y + shoulder_r.y) / 2
-                    waist_y = (waist_l.y + waist_r.y) / 2
+                    # Convert coordinates to NumPy arrays for geometric math (X, Y)
+                    ls = np.array([shoulder_l.x, shoulder_l.y])
+                    rs = np.array([shoulder_r.x, shoulder_r.y])
+                    lh = np.array([waist_l.x, waist_l.y])
+                    rh = np.array([waist_r.x, waist_r.y])
                     
-                    shoulder_x = (shoulder_l.x + shoulder_r.x) / 2
-                    waist_x = (waist_l.x + waist_r.x) / 2
+                    # Calculate midpoints
+                    shoulder_mid = (ls + rs) / 2
+                    hip_mid = (lh + rh) / 2
                     
-                    # 1. Sideways check: Check if shoulder and waist are far apart horizontally
-                    if abs(shoulder_x - waist_x) < 0.1:
-                        feedback_msg = "Please position yourself sideways."
-                    # 2. Horizontal check: Shoulders and waist should be above the ground (hands)
-                    elif shoulder_y > ground_y or waist_y > ground_y:
-                        feedback_msg = "Please rest horizontally above the ground."
+                    # 1. Scale-invariant reference: Torso Length
+                    torso_length = np.linalg.norm(shoulder_mid - hip_mid)
+                    
+                    # Guard against division by zero
+                    if torso_length == 0:
+                        feedback_msg = "Adjust your stance."
                     else:
-                        # Proceed with analyzing points
-                        shoulder_height_px = max(0, (ground_y - shoulder_y) * h)
-                        self.analyzer.process_point(current_time, shoulder_height_px)
-                        feedback_msg = "Good position!"
+                        # 2. Calculate the distance-invariant ratios
+                        vertical_ratio = abs(shoulder_mid[1] - hip_mid[1]) / torso_length
+                        shoulder_ratio = abs(ls[0] - rs[0]) / torso_length
+
+                        # Condition 1: Horizontal Check (e.g., Lying down / Plank)
+                        if vertical_ratio > 0.3:
+                            feedback_msg = "Rest horizontally above the ground."
+                            
+                        # Condition 2: Sideways Check (Profile View)
+                        elif shoulder_ratio > 0.4:
+                            feedback_msg = "Position yourself sideways."
+                            
+                        # Condition 3: Good starting position found!
+                        else:
+                            feedback_msg = "Good position!"
+                            
+                            # Use wrists as your ground/floor anchor baseline
+                            ground_y = (wrist_l.y + wrist_r.y) / 2
+                            shoulder_y = shoulder_mid[1]
+                            
+                            # Calculate pixel height for analysis processing
+                            shoulder_height_px = max(0, (ground_y - shoulder_y) * h)
+                            self.analyzer.process_point(current_time, shoulder_height_px)
+                        if feedback_msg != "Good position!": print(feedback_msg)
             except IndexError:
                 pass
         else:

@@ -201,7 +201,7 @@ def process_pushup_video(video_name, video_dir='videos', show_video=False):
 
 
 if __name__ == "__main__":
-    video_list = ['pushup1.mp4', 'pushup2.mp4', 'pushup3.mp4', 'pushup4.mp4', 'pushup5.mp4']
+    video_list = ['pushup6.mp4']
     
     # Run the loop
     for video in video_list:
