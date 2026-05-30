@@ -32,6 +32,8 @@ class PushupCounter:
         self.LEFT_ELBOW, self.RIGHT_ELBOW = 13, 14
         self.LEFT_WRIST, self.RIGHT_WRIST = 15, 16
         self.LEFT_HIP, self.RIGHT_HIP = 23, 24
+        self.LEFT_KNEE, self.RIGHT_KNEE = 25, 26
+        self.LEFT_ANKLE, self.RIGHT_ANKLE = 27, 28
         
         self.debug = True
         
@@ -83,66 +85,85 @@ class PushupCounter:
                 waist_l = pose_landmarks[self.LEFT_HIP]
                 elbow_r = pose_landmarks[self.RIGHT_ELBOW]
                 elbow_l = pose_landmarks[self.LEFT_ELBOW]
+                knee_r = pose_landmarks[self.RIGHT_KNEE]
+                knee_l = pose_landmarks[self.LEFT_KNEE]
+                ankle_r = pose_landmarks[self.RIGHT_ANKLE]
+                ankle_l = pose_landmarks[self.LEFT_ANKLE]
                 
                 # Check visibility
-                min_vis = min([wrist_r.visibility, wrist_l.visibility, shoulder_r.visibility, shoulder_l.visibility, waist_r.visibility, waist_l.visibility, elbow_r.visibility, elbow_l.visibility])
+                min_vis = min([
+                    wrist_r.visibility, wrist_l.visibility, 
+                    shoulder_r.visibility, shoulder_l.visibility, 
+                    waist_r.visibility, waist_l.visibility, 
+                    elbow_r.visibility, elbow_l.visibility,
+                    knee_r.visibility, knee_l.visibility,
+                    ankle_r.visibility, ankle_l.visibility
+                ])
                 
                 if min_vis < 0.1:
                     feedback_msg = "Ensure your full body is visible."
                 else:
-                    # Convert coordinates to NumPy arrays for geometric math (X, Y)
-                    ls = np.array([shoulder_l.x, shoulder_l.y])
-                    rs = np.array([shoulder_r.x, shoulder_r.y])
-                    lh = np.array([waist_l.x, waist_l.y])
-                    rh = np.array([waist_r.x, waist_r.y])
+                    # Convert coordinates to NumPy arrays for geometric math (X, Y) in pixel coordinates
+                    ls = np.array([shoulder_l.x * w, shoulder_l.y * h])
+                    rs = np.array([shoulder_r.x * w, shoulder_r.y * h])
+                    lh = np.array([waist_l.x * w, waist_l.y * h])
+                    rh = np.array([waist_r.x * w, waist_r.y * h])
+                    lk = np.array([knee_l.x * w, knee_l.y * h])
+                    rk = np.array([knee_r.x * w, knee_r.y * h])
+                    la = np.array([ankle_l.x * w, ankle_l.y * h])
+                    ra = np.array([ankle_r.x * w, ankle_r.y * h])
                     
                     # Calculate midpoints
                     shoulder_mid = (ls + rs) / 2
                     hip_mid = (lh + rh) / 2
+                    knee_mid = (lk + rk) / 2
+                    ankle_mid = (la + ra) / 2
                     
-                    # 1. Scale-invariant reference: Torso Length
-                    torso_length = np.linalg.norm(shoulder_mid - hip_mid)
+                    hip_angle = calculate_angle(shoulder_mid, hip_mid, knee_mid)
+                    knee_angle = calculate_angle(hip_mid, knee_mid, ankle_mid)
                     
-                    # Guard against division by zero
-                    if torso_length == 0:
+                    body_length = np.linalg.norm(shoulder_mid - ankle_mid)
+                    
+                    if body_length == 0:
                         feedback_msg = "Adjust your stance."
                     else:
-                        # 2. Calculate the distance-invariant ratios
-                        vertical_ratio = abs(shoulder_mid[1] - hip_mid[1]) / torso_length
-                        shoulder_ratio = abs(ls[0] - rs[0]) / torso_length
-
-                        # Condition 1: Horizontal Check (e.g., Lying down / Plank)
-                        if vertical_ratio > 0.4:
-                            feedback_msg = "Rest horizontally above the ground."
-                            
-                        # Condition 2: Sideways Check (Profile View)
-                        elif shoulder_ratio > 0.4:
-                            feedback_msg = "Position yourself sideways."
-                            
-                        # Condition 3: Good starting position found!
+                        body_incline_ratio = abs(shoulder_mid[1] - ankle_mid[1]) / body_length
+                        
+                        is_not_standing = body_incline_ratio < 0.65 
+                        is_torso_straight = hip_angle > 130.0 
+                        is_leg_straight = knee_angle > 130.0
+                        is_feet_on_floor = ankle_mid[1] > (knee_mid[1] - 0.05 * body_length)
+                        
+                        if not is_not_standing:
+                            feedback_msg = "Invalid: Standing/Steep Incline"
+                        elif not is_feet_on_floor:
+                            feedback_msg = "Invalid: Knee Push-up / Feet Lifted"
+                        elif not is_torso_straight:
+                            feedback_msg = "Invalid: Crouching / Hips Bent"
+                        elif not is_leg_straight:
+                            feedback_msg = "Invalid: Legs Bent"
                         else:
                             feedback_msg = "Good position!"
                             
                             # Use wrists as your ground/floor anchor baseline
-                            ground_y = (wrist_l.y + wrist_r.y) / 2
-                            shoulder_y = shoulder_mid[1]
+                            ground_y_px = ((wrist_l.y + wrist_r.y) / 2) * h
+                            shoulder_y_px = shoulder_mid[1]
                             
                             # Proceed with analyzing points
-                            shoulder_height_px = max(0, (ground_y - shoulder_y) * h)
+                            shoulder_height_px = max(0, ground_y_px - shoulder_y_px)
                             
                             right_angle = calculate_angle(
-                                [shoulder_r.x, shoulder_r.y],
-                                [elbow_r.x, elbow_r.y],
-                                [wrist_r.x, wrist_r.y]
+                                [shoulder_r.x * w, shoulder_r.y * h],
+                                [elbow_r.x * w, elbow_r.y * h],
+                                [wrist_r.x * w, wrist_r.y * h]
                             )
                             left_angle = calculate_angle(
-                                [shoulder_l.x, shoulder_l.y],
-                                [elbow_l.x, elbow_l.y],
-                                [wrist_l.x, wrist_l.y]
+                                [shoulder_l.x * w, shoulder_l.y * h],
+                                [elbow_l.x * w, elbow_l.y * h],
+                                [wrist_l.x * w, wrist_l.y * h]
                             )
                             
                             self.analyzer.process_point(current_time, right_angle, left_angle, shoulder_height_px)
-                        #if feedback_msg != "Good position!": print(feedback_msg)
             except IndexError:
                 pass
         else:

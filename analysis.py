@@ -110,10 +110,8 @@ class AdaptivePushupAnalyzer:
             
             # REQUIREMENT: Both must be fulfilled to transition states
             if angle_dropped and shoulder_dropped:
-                
-                # Angle-specific > 70 constraint
-                if current_ascent_amp_angle <= 70:
-                    print(f"[{self.name}] {current_time:>5.2f}s | Ignored Max | Angle Amplitude {current_ascent_amp_angle:.2f} <= 70")
+                if current_ascent_amp_angle <= 60:
+                    print(f"[{self.name}] {current_time:>5.2f}s | Ignored Max | Angle Amplitude {current_ascent_amp_angle:.2f} <= 60")
                 else:
                     self._register_peak('Max', self.local_extreme_time, self.local_extreme_angle, self.local_extreme_shoulder)
                     
@@ -154,9 +152,8 @@ class AdaptivePushupAnalyzer:
             # REQUIREMENT: Both must be fulfilled to transition states
             if angle_risen and shoulder_risen:
                 
-                # Angle-specific > 70 constraint
-                if current_descent_amp_angle <= 70:
-                    print(f"[{self.name}] {current_time:>5.2f}s | Ignored Min | Angle Amplitude {current_descent_amp_angle:.2f} <= 70")
+                if current_descent_amp_angle <= 50:
+                    print(f"[{self.name}] {current_time:>5.2f}s | Ignored Min | Angle Amplitude {current_descent_amp_angle:.2f} <= 50")
                 else:
                     self._register_peak('Min', self.local_extreme_time, self.local_extreme_angle, self.local_extreme_shoulder)
                     
@@ -221,4 +218,4 @@ def stream_csv_data(angles_filepath, shoulder_filepath):
 
 if __name__ == "__main__":
     # Pass both file paths to the function
-    stream_csv_data('data/angles_pushup6.csv', 'data/pushup6.csv')
+    stream_csv_data('data/angles_pushup1.csv', 'data/pushup1.csv')
