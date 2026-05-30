@@ -36,6 +36,19 @@ function connectWebSocket() {
         if (data.count !== undefined) {
             repCount.textContent = data.count;
         }
+        
+        const feedbackBanner = document.getElementById('feedback-banner');
+        if (data.feedback && data.feedback !== "") {
+            feedbackBanner.textContent = data.feedback;
+            feedbackBanner.style.display = 'block';
+            if (data.feedback === "Good position!") {
+                feedbackBanner.classList.add('good');
+            } else {
+                feedbackBanner.classList.remove('good');
+            }
+        } else {
+            if (feedbackBanner) feedbackBanner.style.display = 'none';
+        }
     };
 
     ws.onclose = () => {
@@ -68,17 +81,22 @@ async function startCamera() {
         video.srcObject = stream;
         
         video.onloadedmetadata = () => {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            
-            cameraOverlay.style.display = 'none';
-            processedFeed.style.display = 'block';
-            
-            isStreaming = true;
-            connectWebSocket();
-            
-            // Start sending frames
-            sendFrames();
+            video.play().then(() => {
+                console.log("Video playing, dimensions:", video.videoWidth, video.videoHeight);
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                cameraOverlay.style.display = 'none';
+                processedFeed.style.display = 'block';
+                
+                isStreaming = true;
+                connectWebSocket();
+                
+                // Start sending frames
+                sendFrames();
+            }).catch(e => {
+                console.error("Error playing video:", e);
+            });
         };
     } catch (err) {
         console.error('Error accessing webcam:', err);

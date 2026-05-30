@@ -2,9 +2,9 @@ import cv2
 import sys
 from counter import PushupCounter
 
-def main():
+def main(video_source):
     counter = PushupCounter()
-    video_source = "videos/pushup5.mp4" 
+    counter.debug = True # ensure overlay is on for testing
     
     cap = cv2.VideoCapture(video_source)
     
@@ -12,7 +12,7 @@ def main():
         print(f"Error: Could not open video source {video_source}")
         sys.exit()
 
-    print("Processing video... Press 'q' to exit.")
+    print(f"Processing video {video_source}... Press 'q' to exit.")
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -20,7 +20,7 @@ def main():
             break # Video has ended
         
         # Process the frame through your class
-        annotated_frame = counter.process_frame(frame)
+        annotated_frame, feedback = counter.process_frame(frame)
         
         # Display the output window
         cv2.imshow('Push-Up Counter', annotated_frame)
@@ -35,4 +35,4 @@ def main():
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    main()
+    main('videos/pushup5.mp4')

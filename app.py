@@ -33,14 +33,14 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
             
             # The client sends "data:image/jpeg;base64,..."
-            if data.startswith('data:image/jpeg;base64,'):
+            if data.startswith('data:image/'):
                 img_data = base64.b64decode(data.split(',')[1])
                 nparr = np.frombuffer(img_data, np.uint8)
                 frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 
                 if frame is not None:
                     # Process frame
-                    annotated_frame = pushup_counter.process_frame(frame)
+                    annotated_frame, feedback = pushup_counter.process_frame(frame)
                     
                     # Encode back to base64
                     # We can use a lower quality to improve speed
@@ -48,10 +48,11 @@ async def websocket_endpoint(websocket: WebSocket):
                     _, buffer = cv2.imencode('.jpg', annotated_frame, encode_param)
                     base64_str = base64.b64encode(buffer).decode('utf-8')
                     
-                    # Send annotated frame and rep count
+                    # Send annotated frame, rep count, and feedback
                     response_data = {
                         "image": f"data:image/jpeg;base64,{base64_str}",
-                        "count": pushup_counter.analyzer.rep_count
+                        "count": pushup_counter.analyzer.rep_count,
+                        "feedback": feedback
                     }
                     await websocket.send_json(response_data)
             

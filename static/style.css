@@ -202,6 +202,28 @@ video, canvas {
     color: var(--text-secondary);
 }
 
+.feedback-banner {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    z-index: 20;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    text-align: center;
+    max-width: 80%;
+    backdrop-filter: blur(4px);
+    transition: all 0.3s ease;
+}
+
+.feedback-banner.good {
+    background: rgba(16, 185, 129, 0.9);
+}
+
 @media (max-width: 860px) {
     .main-content {
         grid-template-columns: 1fr;
